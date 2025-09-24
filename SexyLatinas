@@ -1,0 +1,48 @@
+#!/bin/bash
+# Use this for your user data (script from top to bottom)
+# install httpd (Linux 2 version)
+yum update -y
+yum install -y httpd
+systemctl start httpd
+systemctl enable httpd
+
+# Get the IMDSv2 token
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
+# Background the curl requests
+curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/local-ipv4 &> /tmp/local_ipv4 &
+curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/placement/availability-zone &> /tmp/az &
+curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/network/interfaces/macs/ &> /tmp/macid &
+wait
+
+macid=$(cat /tmp/macid)
+local_ipv4=$(cat /tmp/local_ipv4)
+az=$(cat /tmp/az)
+vpc=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/network/interfaces/macs/${macid}/vpc-id)
+
+echo "
+<!doctype html>
+<html lang=\"en\" class=\"h-100\">
+<head>
+<title>Evan29's EC2</title>
+</head>
+<body>
+<div>
+<h1><b>Class 7</b></h1>
+<h1 align ="center">Lets get it!!</h1>
+
+<br><div align ="center">
+<img width=25% src="https://i.pinimg.com/736x/0a/51/27/0a5127cfd58c4848f68d95d0f0174fa7.jpg" alt="The second pic link did not work."> <img width=25% src="https://i.pinimg.com/736x/00/23/55/00235521d60303449ea71a92f83256c3.jpg" alt="The second pic link did not work."> <img width=25% src="https://i.pinimg.com/736x/86/76/a1/8676a1b088d3665d16336f36e63a5429.jpg" alt="The third pic link did not work.">
+</div></br>
+
+<p><b>Instance Name:</b> $(hostname -f) </p>
+<p><b>Instance Private Ip Address: </b> ${local_ipv4}</p>
+<p><b>Availability Zone: </b> ${az}</p>
+<p><b>Virtual Private Cloud (VPC):</b> ${vpc}</p>
+</div>
+</body>
+</html>
+" > /var/www/html/index.html
+
+# Clean up the temp files
+rm -f /tmp/local_ipv4 /tmp/az /tmp/macid
